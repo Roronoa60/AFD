@@ -21,11 +21,11 @@ x_airfoil = x_airfoil(1,[1:end]);
 fclose(fid);
 
 % Get cross-sectional area of each station
-station.Chord_len = var.GeoRootChord - (var.GeoRootChord-var.TipChord) * (var.FuseRad+station.SpanMesh) / var.SemiSpan; %get station chords
-for i = 1:length(station.Chord_len) %scale airfoil coordinates for each station and put it to global airplane xyz coord
+station.Chord = var.GeoRootChord - (var.GeoRootChord-var.TipChord) * (var.FuseRad+station.SpanMesh) / var.SemiSpan; %get station chords
+for i = 1:length(station.Chord) %scale airfoil coordinates for each station and put it to global airplane xyz coord
     % where y is direction of span, z is direction of gravity
-    station.x_airfoil(i,:) = station.Chord_len(i) .* x_airfoil;
-    station.z_airfoil(i,:) = station.Chord_len(i) .* y_airfoil;
+    station.x_airfoil(i,:) = station.Chord(i) .* x_airfoil;
+    station.z_airfoil(i,:) = station.Chord(i) .* y_airfoil;
     station.y_airfoil(i,:)=ones(1,length(station.x_airfoil(i,:))) *station.SpanMesh(i);
 
     %apply the function polygeom
@@ -94,20 +94,20 @@ while aero_LiftError > 0.1
 end
 
 %% inertialF Loads
-[station.SF_inertial,station.BM_inertial]=getSFnBM(-station.TotalMass.*9.81 ,station.SpanMesh,var.FAAngle);
+[SF.inertial,BM.inertial]=getSFnBM(-station.TotalMass.*9.81 ,station.SpanMesh,var.FAAngle);
 
-[station.SF_aero,station.BM_aero]=getSFnBM(dL ,station.SpanMesh,var.FAAngle);
+[SF.aero,BM.aero]=getSFnBM(dL ,station.SpanMesh,var.FAAngle);
 
 %% Overall loading and Torque Distribution
-station.SF_tot = station.SF_aero + station.SF_inertial;
-station.BM_tot = station.BM_aero + station.BM_inertial;
+SF.tot = SF.aero + SF.inertial;
+BM.tot = BM.aero + BM.inertial;
 
 % get aerodynamic pitching moment for each station
-T_M0 = 0.5 * var.rho * var.Vmo^2 * station.Chord_len.^2 * var.Cm0; %formula from notes p54
+T_M0 = 0.5 * var.rho * var.Vmo^2 * station.Chord.^2 * var.Cm0; %formula from notes p54
 
 % get the moment arms for each stations
-station.a = (var.FALocation - 0.25).* station.Chord_len; %lift moment arm 
-station.b = (var.CGLocation - var.FALocation).* station.Chord_len; %weight moment arm (CG - flexural axis)
+station.a = (var.FALocation - 0.25).* station.Chord; %lift moment arm 
+station.b = (var.CGLocation - var.FALocation).* station.Chord; %weight moment arm (CG - flexural axis)
 
 % get total torque
 dT = station.a.*dL + station.b.*station.StructMass * 9.81 + T_M0; %N (+T_M0 because Cm0 is -ve )
@@ -151,13 +151,13 @@ subplot(3,1,1)
 hold on
 grid on
 ylabel('SF (N)')
-plot(station.SpanMesh,station.SF_tot,'b')
+plot(station.SpanMesh,SF.tot,'b')
 % plot BM
 subplot(3,1,2)
 hold on
 grid on
 ylabel('BM (Nm)')
-plot(station.SpanMesh,station.BM_tot,'b')
+plot(station.SpanMesh,BM.tot,'b')
 % plot T
 subplot(3,1,3)
 hold on
@@ -179,15 +179,13 @@ l = var.RSLoc - var.FSLoc; % distance between spar as perc of chord
 
 figure
 plot(x_airfoil ,y_airfoil )
-%line([var.FSLoc,var.RSLoc,var.RSLoc,var.FSLoc,var.FSLoc],[ y_airfoil(yFS_idx(2))  flip(y_airfoil(yFS_idx)) y_airfoil(yFS_idx)],'LineWidth',0.5,'Color','k');hold on
+line([var.FSLoc,var.RSLoc,var.RSLoc,var.FSLoc,var.FSLoc],[ y_airfoil(yFS_idx(2))  flip(y_airfoil(yFS_idx)) y_airfoil(yFS_idx)],'LineWidth',0.5,'Color','k');hold on
 line([var.FSLoc,var.RSLoc,var.RSLoc,var.FSLoc,var.FSLoc],[ y_airfoil(yRS_idx(2))  flip(y_airfoil(yRS_idx)) y_airfoil(yRS_idx)],'LineWidth',0.5,'Color','r');
 axis equal
 title("wing box based on FS/RS")
 
 % wing box dimensions
-station.c=l*station.Chord_len';
-staion.b2=h*station.Chord_len';
+wingbox.c=l*station.Chord';
+wingbox.b2=h*station.Chord';
 
-
-save('station.mat', '-struct', 'station');
 
