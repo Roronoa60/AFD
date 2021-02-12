@@ -15,6 +15,13 @@ L = 0.5;
 M = 23286.8;
 rib_thickness(geometry, c, E, hc, L, M) % should equal 0.661 mm
 %}
+geometry = struct('n', 10, 'b', 100, 't', 1, 'ts', 1, 'h', 50, 'd', 15, 'F', 0.82, 'As', 80, 'weight', 0.611);
+E = 70;
+
+[L, D_distribution] = constant_L_solution(geometry, E, wing_span)
+
+
+
 %% 3.1
 function  [t,sigma] = simple_panel_buckling(M, c, bh, E)
     % M - Bending Moment at section (Nm)
@@ -190,24 +197,32 @@ end
 % Caculate weight of entire configuration
 
 %% L constant along span
-function [L, D_distribution] = constant_L_solution(geometry, E, bh, c, wing_span) % NOT TESTED
-    % Calculate rib thickness based on constant L
-    D = 5; % (mm) initial assumption
-    M = bending_moment_at('0_span');
+function [L_distribution, Tr_distribution] = constant_L_solution(geometry, E) % NOT TESTED
+% Calculate rib thickness based on constant L
+    F = geometry.F;
+    
+    load('station.mat');
+    wing_span = station.SpanMesh(end);
+    
+    Tr = 5; % Rib thickness for first rib (mm) initial assumption
+    M = extract_force(0, 'BM');
+    bh = extract_dimension(0, 'bh');
+    c = extract_dimension(0, 'c');
     N = M/(c*bh);
+    
+    D = bh; % rib height same as box height
     
     for i = 1:10 % do several iterations untill D and L converge
         L = ((4*F^2*D^2*Tr*E)/N)^(1/3); % Solution for intercept of rib and stringer weight
 
-        M = bending_moment_at_section(L); % !!!!!!!!!!!!!
-        D = rib_thickness(geometry, c, E, hc, L, M);
+        M = extract_force(L, 'BM');
+        Tr = rib_thickness(geometry, c, E, bh, L, M);
     end
-    D_array = zeros(1, round(wing_span/L));
-    t_array = zeros(1, round(wing_span/L)+1);
-    D_array(1) = D;
-    t_array(1) = t;
-    section = 2;
-    while section*L < wing_span % iterate through each section in wing and assign rib thickness and skin thickness
+    Tr_array = zeros(1, floor(wing_span/L));
+    t_array = zeros(1, floor(wing_span/L)+1);
+    L_distribution = (1:floor(wing_span/L))*L
+        
+    for L = L_distribution % iterate through each section in wing and assign rib thickness and skin thickness
         q = shear_flow_at(section*L);
         M = compressive_load_at(section*L);
         c = c_at(section*L);
@@ -215,7 +230,7 @@ function [L, D_distribution] = constant_L_solution(geometry, E, bh, c, wing_span
         N = M/(c*bh); % compressive Load at section*L
         
         t_array(section) = solve_skin_thickness_1(N, ts/t, b/h, b, E, q);
-        D_array(section) = rib_thickness(t, As, b, c, hb, M, L, hc, E);
+        D_array(section) = rib_thickness(geometry, c, E, bh, L, M);
         section = section + 1;
     end
     q = shear_flow_at(section*L);
