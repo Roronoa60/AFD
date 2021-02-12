@@ -2,17 +2,17 @@
 
 function force = extract_force(span_location, force_type)
     load('station.mat');
-    load('force_distributions.mat');
-    span_end = station.SpanMesh(end);
+    % load('force_distributions.mat');
+    span_end = SpanMesh(end);
     
     if 0 < span_location <= span_end
-        span_index = find(station.SpanMesh == round(span_location,2));
+        span_index = find((span_location-0.005 < SpanMesh) & (SpanMesh < span_location+0.005));
         if force_type == 'SF'
-            force = force.SF(span_index);
+            force = SF_tot(span_index);
         elseif force_type == 'BM'
-            force = force.BM(span_index);
+            force = BM_tot(span_index);
         elseif force_type == 'T'
-            force = force.T(span_index);
+            force = T(span_index);
         else
             error('force_type not recognized')
         end
