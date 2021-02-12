@@ -197,7 +197,7 @@ force.SF = SF.tot;
 force.BM = BM.tot;
 force.T = T;
 save('Wing/force_distributions.mat','force');
-save('Wing/station.mat','station');
+% save('Wing/station.mat','station');
 
 
 
