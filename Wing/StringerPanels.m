@@ -5,6 +5,22 @@ clc
 
 %stringer_panel_buckling_thickness(10, 1, 1, 50, 23286.8, 1, 0.2, 70E9);
 
+%{
+Rib and Second moment of area Function Tests:
+geometry = struct('t', 2, 'As', 0, 'b', 1);
+c = 1;
+E = 72;
+hc = 0.2;
+L = 0.5;
+M = 23286.8;
+rib_thickness(geometry, c, E, hc, L, M) % should equal 0.661 mm
+%}
+geometry = struct('n', 10, 'b', 100, 't', 1, 'ts', 1, 'h', 50, 'd', 15, 'F', 0.82, 'As', 80, 'weight', 0.611);
+E = 70;
+
+[L, D_distribution] = constant_L_solution(geometry, E, wing_span)
+
+
 
 %% 3.1
 function  [t,sigma] = simple_panel_buckling(M, c, bh, E)
@@ -21,7 +37,6 @@ function  [t,sigma] = simple_panel_buckling(M, c, bh, E)
 end
 
 %% 3.2.1 - 3.2.5
-
 function  [min_weight_geometry, max_F_geometry] = root_geometry(M, c, bh, bh_min, E, q) %(n, t2, ts, h, M, c, b2, E)
     % M - root bending moment (Nm)
     % c - root box width (m)
@@ -37,9 +52,9 @@ function  [min_weight_geometry, max_F_geometry] = root_geometry(M, c, bh, bh_min
     simple_panel_weight = c*t_simple*1000;
     
     %%    
-    weights = {'n', 'b', 't', 'ts', 'h', 'd', 'F', 'As', 'weight'};
-    min_weight = {'n', 'b', 't', 'ts', 'h', 'd', 'F', 'As', 0};
-    max_F = {'n', 'b', 't', 'ts', 'h', 'd', 0, 'As', 'weight'};
+    % weights = {'n', 'b', 't', 'ts', 'h', 'd', 'F', 'As', 'weight'};
+    min_w = struct('n', 0, 'b', 0, 't', 0, 'ts', 0, 'h', 0, 'd', 0, 'F', 0, 'As', 0, 'weight', 0); % minimum weight geometry
+    max_F = struct('n', 0, 'b', 0, 't', 0, 'ts', 0, 'h', 0, 'd', 0, 'F', 0, 'As', 0, 'weight', 0); % maximum F geometry
     
     % n - No. of stringers
     % Rt = ts/t = stringer web thickness/skin thickness
@@ -72,12 +87,12 @@ function  [min_weight_geometry, max_F_geometry] = root_geometry(M, c, bh, bh_min
                         weight_save = (simple_panel_weight - stringer_panel_weight)/simple_panel_weight;
                         
                         % If new geometry improves weight saving
-                        if min_weight(end) < weight_save
-                            min_weight = {n, b, t, ts, h, d, F, As, weight_save};
+                        if min_w.weight < weight_save
+                            min_w = struct('n', n, 'b', b, 't', t, 'ts', ts, 'h', h, 'd', d, 'F', F, 'As', As, 'weight', weight_save);
                         end
                         % If new geometry improves F
-                        if max_F(7) < F | (max_F(7) == F & max_F(end) > weight_save) % if F matches, pick lighter geometry
-                            max_F = {n, b, t, ts, h, d, F, As, weight_save};
+                        if max_F.F < F | (max_F.F == F & max_F.weight > weight_save) % if F matches, pick lighter geometry
+                            max_F = struct('n', n, 'b', b, 't', t, 'ts', ts, 'h', h, 'd', d, 'F', F, 'As', As, 'weight', weight_save);
                         end
                         % weights(end+1,:) = {n, b, t, ts, h, d, F, weight_save}
                     else
@@ -87,7 +102,7 @@ function  [min_weight_geometry, max_F_geometry] = root_geometry(M, c, bh, bh_min
             end
         end
     end
-    min_weight_geometry = min_weight;
+    min_weight_geometry = min_w;
     max_F_geometry = max_F;
     % Purpose of storing all the variables in a cell array is the option to store all different iterations in one array
     %{
@@ -140,7 +155,7 @@ function  [min_weight_geometry, max_F_geometry] = root_geometry(M, c, bh, bh_min
     %}
 end
 
-function t = solve_skin_thickness_1(N, Rt, Rb, b, E, q) % Use combined loading inequality of compressive and shear stress to solve for t
+function t = solve_skin_thickness_1(N, geometry, E, q) % Use combined loading inequality of compressive and shear stress to solve for t % NOT TESTED
     %{
     syms t
 
@@ -149,26 +164,28 @@ function t = solve_skin_thickness_1(N, Rt, Rb, b, E, q) % Use combined loading i
     S = min(S(S>0))
     %}
     syms t
-    
+    Rb = geomtry.h / geomtry.b;
+    Rt = geomtry.ts / geomtry.t;
     Ks = find_Ks(Rb, Rt);
     Kc = find_Kc(Rb, Rt);
-    eqn = t^6 * (-0.99*Ks^2*E^2)/(b^4) + q^2 + (N*Ks*E*t^3)/((1+Rt*Rb)*Kc*b^2) == 0;
+    eqn = t^6 * (-0.99*Ks^2*E^2)/(geometry.b^4) + q^2 + (N*Ks*E*t^3)/((1+Rt*Rb)*Kc*geometry.b^2) == 0;
     
     S = solve(eqn, t, 'Real', true); % Solve for t
     t = min(S(S>0)); % Find smallest real positive solution for t
 end
 
-function t = solve_skin_thickness_2(b, N, E, Rb, Rt) % based on initial buckling criteria
+function t = solve_skin_thickness_2(N, E, geometry) % based on initial buckling criteria % NOT TESTED
+    
     Kc = find_Kc(Rb, Rt);
     t = ((b^2*N)/(Kc*E))^(1/3);
 end
 
-function weight = stringer_panel_weight(n, b, t, As)
+function weight = stringer_panel_weight(n, b, t, As) % NOT TESTED
     weight = b*t*(n+1) + n*As;
 end
 
 %% L varying along span
-function [L, D] = varying_L_solution(h, b, ts, t, E, N)
+function [L, D] = varying_L_solution(h, b, ts, t, E, N) % NOT TESTED
     % Obtain optimum L using Farrer's Equation
     Kc = get_Kc(h/b, ts/t);
     sigma_cr = Kc*E*(t/b)^2;
@@ -180,24 +197,32 @@ end
 % Caculate weight of entire configuration
 
 %% L constant along span
-function [L, D_distribution] = constant_L_solution(F, E, bh, ts, t, As, b, h, c wing_span)
-    % Calculate rib thickness based on constant L
-    D = 5; % (mm) initial assumption
-    M = bending_moment_at('0_span');
+function [L_distribution, Tr_distribution] = constant_L_solution(geometry, E) % NOT TESTED
+% Calculate rib thickness based on constant L
+    F = geometry.F;
+    
+    load('station.mat');
+    wing_span = station.SpanMesh(end);
+    
+    Tr = 5; % Rib thickness for first rib (mm) initial assumption
+    M = extract_force(0, 'BM');
+    bh = extract_dimension(0, 'bh');
+    c = extract_dimension(0, 'c');
     N = M/(c*bh);
+    
+    D = bh; % rib height same as box height
     
     for i = 1:10 % do several iterations untill D and L converge
         L = ((4*F^2*D^2*Tr*E)/N)^(1/3); % Solution for intercept of rib and stringer weight
 
-        M = bending_moment_at_section(L); % !!!!!!!!!!!!!
-        D = rib_thickness(t, As, b, c, te, hb, M, L, hc, E);
+        M = extract_force(L, 'BM');
+        Tr = rib_thickness(geometry, c, E, bh, L, M);
     end
-    D_array = zeros(1, round(wing_span/L));
-    t_array = zeros(1, round(wing_span/L)+1);
-    D_array(1) = D;
-    t_array(1) = t;
-    section = 2;
-    while section*L < wing_span % iterate through each section in wing and assign rib thickness and skin thickness
+    Tr_array = zeros(1, floor(wing_span/L));
+    t_array = zeros(1, floor(wing_span/L)+1);
+    L_distribution = (1:floor(wing_span/L))*L
+        
+    for L = L_distribution % iterate through each section in wing and assign rib thickness and skin thickness
         q = shear_flow_at(section*L);
         M = compressive_load_at(section*L);
         c = c_at(section*L);
@@ -205,7 +230,7 @@ function [L, D_distribution] = constant_L_solution(F, E, bh, ts, t, As, b, h, c 
         N = M/(c*bh); % compressive Load at section*L
         
         t_array(section) = solve_skin_thickness_1(N, ts/t, b/h, b, E, q);
-        D_array(section) = rib_thickness(t, As, b, c, hb, M, L, hc, E);
+        D_array(section) = rib_thickness(geometry, c, E, bh, L, M);
         section = section + 1;
     end
     q = shear_flow_at(section*L);
@@ -218,15 +243,22 @@ function [L, D_distribution] = constant_L_solution(F, E, bh, ts, t, As, b, h, c 
         
 end
 
-
-function I = second_moment_area(c, te, hc)
+function I = second_moment_area(c, te, hc) % c:(m),te(mm),hc(mm),I(m^4)
     % hc = beam depth between panels = box height
     I = c*(te/1000)^3/12 + c*(te/1000)*(hc/2)^2;
 end
 
-function D = rib_thickness(t, As, b, c, hb, M, s, hc, E)
-        te = t + As/b;
-        I = second_moment_area(c, te, hb);  % Second moment of area of the skin
-        F_crush = (M^2*s*hc*te*c)/(2*E*I^2);
-        D = ((F_crush*hc^2)/(3.62*c*E))^(1/3);
+function Tr = rib_thickness(geometry, c, E, hc, L, M) % Returns Tr in (mm)
+% Calculates the rib thickness based on parameters
+% COULD TAKE INTO ACOUNT YIELDING CRITERIA IN FUTURE
+    % E in terms of GPa
+    % hc is height of the wing box (hb)
+    g = geometry;
+    s = L;
+    E = E*10^9;
+
+    te = (g.t + g.As/g.b)/1000;
+    I = second_moment_area(c, te*1000, hc);  % Second moment of area of the skin
+    F_crush = (M^2*s*hc*te*c)/(2*E*I^2);
+    Tr = ((F_crush*hc^2)/(3.62*c*E))^(1/3)*1000;
 end

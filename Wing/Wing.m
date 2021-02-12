@@ -1,5 +1,6 @@
 clear 
 clc
+close all
 
 %% Default Settings for  Figures
 set(0,'defaulttextInterpreter','Latex','DefaultAxesFontSize', 15);
@@ -118,7 +119,7 @@ end
 
 %% Plots
 
-% plot force distribution
+% plot load distribution
 figure_Force=figure; 
 hold on
 area1 = area(station.SpanMesh,dL);
@@ -134,7 +135,7 @@ area3.FaceAlpha = 0.3;
 plot([station.SpanMesh(station_idx_UC),station.SpanMesh(station_idx_UC)],[0,-var.UCMass*9.81],'k',"LineWidth",2)
 plot([station.SpanMesh(station_idx_Engine),station.SpanMesh(station_idx_Engine)],[0,-var.EngineMass*9.81],'r',"LineWidth",2)
 ylim([-200 1000]) 
-ylabel('Force Distribution')
+ylabel('Load Distribution')
 xlabel('Span station Y (m)')
 grid on
 legend({'Lift','Wing Self Weight','FuelMass','MainUC Weight','Engine Weight'},'location','Best') 
@@ -190,4 +191,15 @@ staion.b2=h*station.Chord_len';
 
 
 save('station.mat', '-struct', 'station');
+
+% Saving SF, BM and T to be used for calculations
+force.SF = SF.tot;
+force.BM = BM.tot;
+force.T = T;
+save('Wing/force_distributions.mat','force');
+save('Wing/station.mat','station');
+
+
+
+
 
