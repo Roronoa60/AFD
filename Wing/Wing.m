@@ -193,10 +193,10 @@ staion.b2=h*station.Chord_len';
 save('station.mat', '-struct', 'station');
 
 % Saving SF, BM and T to be used for calculations
-force.SF = SF.tot;
-force.BM = BM.tot;
-force.T = T;
-save('Wing/force_distributions.mat','force');
+%force.SF = SF.tot;
+%force.BM = BM.tot;
+%force.T = T;
+%save('Wing/force_distributions.mat','force');
 % save('Wing/station.mat','station');
 
 
