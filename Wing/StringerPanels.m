@@ -1,5 +1,6 @@
 clear
 clc
+close all
 
 [t, sigma] = simple_panel_buckling(23286.8, 1, 0.2, 70E9);
 
@@ -15,12 +16,18 @@ L = 0.5;
 M = 23286.8;
 rib_thickness(geometry, c, E, hc, L, M) % should equal 0.661 mm
 %}
-geometry = struct('n', 10, 'b', 100, 't', 1, 'ts', 1, 'h', 50, 'd', 15, 'F', 0.82, 'As', 80, 'weight', 0.611);
+
+geometry = struct('n', 10, 'b', 345, 't', 15, 'ts', 10, 'h', 50, 'd', 15, 'F', 0.82, 'As', 80, 'weight', 0.611);
 E = 70;
 
-[L, D_distribution] = constant_L_solution(geometry, E, wing_span)
+[L, Tr_distribution, t_distribution] = varying_L_solution(geometry, E);
 
-
+scatter(L(2:end), Tr_distribution);
+ylabel('Rib Thickness (mm)')
+scatter(L(1:end), t_distribution);
+xlabel('Wing Span (m)')
+ylabel('skin Thickness (mm)')
+ylim([0 16])
 
 %% 3.1
 function  [t,sigma] = simple_panel_buckling(M, c, bh, E)
@@ -155,23 +162,20 @@ function  [min_weight_geometry, max_F_geometry] = root_geometry(M, c, bh, bh_min
     %}
 end
 
-function t = solve_skin_thickness_1(N, geometry, E, q) % Use combined loading inequality of compressive and shear stress to solve for t % NOT TESTED
-    %{
-    syms t
+function t = solve_skin_thickness_1(geometry, c, E, L, N, q, t_skin) % Use combined loading inequality of compressive and shear stress to solve for t % NOT TESTED
 
-    eqn = (t^4 - 2*t)*(t-2) == 0;
-    S = solve(eqn,t,'Real',true)
-    S = min(S(S>0))
-    %}
-    syms t
-    Rb = geomtry.h / geomtry.b;
-    Rt = geomtry.ts / geomtry.t;
-    Ks = find_Ks(Rb, Rt);
-    Kc = find_Kc(Rb, Rt);
-    eqn = t^6 * (-0.99*Ks^2*E^2)/(geometry.b^4) + q^2 + (N*Ks*E*t^3)/((1+Rt*Rb)*Kc*geometry.b^2) == 0;
+    g = geometry;
+    E = E*10^9;
     
+    syms t
+    Rb = g.h / g.b;
+    Rt = g.ts / t_skin;
+    Kc = extr_zstr_k(g.h/g.b, g.ts/t_skin, g.d/g.h);
+    Ks = extr_kb( L/c, 1);
+    eqn = 10^-6 * t^6 * (-0.99*Ks^2*E^2)/(g.b^4) + q^2*10^6 + 10^-3*(N*Ks*E*t^3)/((1+Rt*Rb)*Kc*g.b^2) == 0;
+    % eqn = 10^6*t^3 * (-0.99*Ks^2*E^2)/(g.b^4) + q^2*10^6*t + 10^3*(N*Ks*E)/((1+Rt*Rb)*Kc*g.b^2) == 0;
     S = solve(eqn, t, 'Real', true); % Solve for t
-    t = min(S(S>0)); % Find smallest real positive solution for t
+    t = eval(min(S(S>0))); % Find smallest real positive solution for t
 end
 
 function t = solve_skin_thickness_2(N, E, geometry) % based on initial buckling criteria % NOT TESTED
@@ -185,62 +189,128 @@ function weight = stringer_panel_weight(n, b, t, As) % NOT TESTED
 end
 
 %% L varying along span
-function [L, D] = varying_L_solution(h, b, ts, t, E, N) % NOT TESTED
-    % Obtain optimum L using Farrer's Equation
-    Kc = get_Kc(h/b, ts/t);
-    sigma_cr = Kc*E*(t/b)^2;
-    L = F^2*N*E/sigma_cr; % From rearanging FARRAR's equation
-end
-% Calculate L for each station
-% Calcuate rib thickness based on rib spacing
-% Decide whether calculated thickness B is manufacturable
-% Caculate weight of entire configuration
-
-%% L constant along span
-function [L_distribution, Tr_distribution] = constant_L_solution(geometry, E) % NOT TESTED
-% Calculate rib thickness based on constant L
+function [L_distribution, Tr_distribution, t_distribution] = varying_L_solution(geometry, E) % NOT TESTED
+    g = geometry;
     F = geometry.F;
     
-    load('station.mat');
-    wing_span = station.SpanMesh(end);
+    wing_span = extract_dimension(0, 'wing_span');
     
-    Tr = 5; % Rib thickness for first rib (mm) initial assumption
+    %{
+    Kc = extr_zstr_k(g.h/g.b, g.ts/g.t, g.d/g.h);
+    L = (3.62/Kc)^2*F^2*g.t^2*E/(10^-3*N); % Solution to Farrar Equation
+    M = extract_force(L, 'BM');
+    Tr = rib_thickness(geometry, c, E, bh, L, M);
+    %}
+    
+    Tr_array = [];
+    t_array = [g.t];
+    L_distribution = [0];
+    
+    bh = extract_dimension(0, 'bh');
+    c = extract_dimension(0, 'c');
+    M = extract_force(0, 'BM');
+    N = M/(c*bh);
+    while 1 % iterate through each section in wing and assign rib spacing, rib thickness and skin thickness
+        Kc = extr_zstr_k(g.h/g.b, g.ts/t_array(end), g.d/g.h);
+        L = (3.62/Kc)^2*F^2*g.t^2*E/(10^-3*N); % Solution to Farrar Equation
+        if L_distribution(end) + L > wing_span % check if section beyond wing_span
+            break
+        else
+            span_location = L_distribution(end) + L;
+            q = skin_shear_flow(span_location);
+            M = extract_force(span_location, 'BM');
+            c = extract_dimension(span_location, 'c');
+            bh = extract_dimension(span_location, 'bh');
+            N = M/(c*bh); % compressive Load at section*L
+            
+            L_distribution(end + 1) = span_location;
+            Tr_array(end + 1) = rib_thickness(geometry, c, E, bh, L, M);
+            t_array(end + 1) = solve_skin_thickness_1(geometry, c, E, L, N, q, t_array(end));
+        end
+    end
+    %{
+    % One last cycle for the last section past last rib
+    q = skin_shear_flow(L_distribution(section));
+    M = extract_force(L_distribution(section), 'BM');
+    c = extract_dimension(L_distribution(section), 'c');
+    bh = extract_dimension(L_distribution(section), 'bh');
+    N = M/(c*bh); % compressive Load at section*L
+     
+    t_array(section) = solve_skin_thickness_1(N, ts/t, b/h, b, E, q);
+    %}
+    Tr_distribution = Tr_array;
+    t_distribution = t_array;
+end
+
+
+%% L constant along span
+function [L_distribution, Tr_distribution, t_distribution] = constant_L_solution(geometry, E) % NOT TESTED
+% Calculate rib thickness based on constant L
+    g = geometry;
+    F = geometry.F;
+    
+    %load('station.mat');
+    wing_span = extract_dimension(0, 'wing_span');
+    
+    %Tr = 5; % Rib thickness for first rib (mm) initial assumption
     M = extract_force(0, 'BM');
     bh = extract_dimension(0, 'bh');
     c = extract_dimension(0, 'c');
     N = M/(c*bh);
     
     D = bh; % rib height same as box height
-    
+    %{
     for i = 1:10 % do several iterations untill D and L converge
-        L = ((4*F^2*D^2*Tr*E)/N)^(1/3); % Solution for intercept of rib and stringer weight
+        Kc = extr_zstr_k(g.h/g.b, g.ts/g.t, g.d/g.h);
+        sigma_cr = Kc*E*10^9*(g.t/g.b)^2; % units in N/m^2
+        % sigma_cr = (Kc/3.62)* (N/g.t)/1000;
+        %L = F^2*N*E*10^9/sigma_cr^2;
+        L = (3.62/Kc)^2*F^2*g.t^2*70*10^9/(10^6*N); % Solution to Farrar Equation
+        %L = ((4*F^2*D^2*Tr*E)/N)^(1/3)*100; % Solution for intercept of rib and stringer weight
 
         M = extract_force(L, 'BM');
         Tr = rib_thickness(geometry, c, E, bh, L, M);
     end
+    %}
+    Kc = extr_zstr_k(g.h/g.b, g.ts/g.t, g.d/g.h);
+    L = (3.62/Kc)^2*F^2*g.t^2*E/(10^-3*N); % Solution to Farrar Equation
+    M = extract_force(L, 'BM');
+    Tr = rib_thickness(geometry, c, E, bh, L, M);
+    
     Tr_array = zeros(1, floor(wing_span/L));
-    t_array = zeros(1, floor(wing_span/L)+1);
-    L_distribution = (1:floor(wing_span/L))*L
+    t_array = zeros(1, floor(wing_span/L));
+    L_distribution = (1:floor(wing_span/L))*L;
         
-    for L = L_distribution % iterate through each section in wing and assign rib thickness and skin thickness
-        q = shear_flow_at(section*L);
-        M = compressive_load_at(section*L);
-        c = c_at(section*L);
-        bh = bh_at(section*L);
+    for section = 1:floor(wing_span/L) % iterate through each section in wing and assign rib thickness and skin thickness
+        q = skin_shear_flow(L_distribution(section));
+        M = extract_force(L_distribution(section), 'BM');
+        c = extract_dimension(L_distribution(section), 'c');
+        bh = extract_dimension(L_distribution(section), 'bh');
         N = M/(c*bh); % compressive Load at section*L
         
-        t_array(section) = solve_skin_thickness_1(N, ts/t, b/h, b, E, q);
+        t_array(section) = solve_skin_thickness_1(geometry, c, E, L, N, q);
         D_array(section) = rib_thickness(geometry, c, E, bh, L, M);
-        section = section + 1;
     end
-    q = shear_flow_at(section*L);
-    M = compressive_load_at(section*L);
-    c = c_at(section*L);
-    bh = bh_at(section*L);
+    %{
+    % One last cycle for the last section past last rib
+    q = skin_shear_flow(L_distribution(section));
+    M = extract_force(L_distribution(section), 'BM');
+    c = extract_dimension(L_distribution(section), 'c');
+    bh = extract_dimension(L_distribution(section), 'bh');
     N = M/(c*bh); % compressive Load at section*L
-        
+     
     t_array(section) = solve_skin_thickness_1(N, ts/t, b/h, b, E, q);
-        
+    %}
+    Tr_distribution = Tr_array;
+    t_distribution = t_array;
+end
+
+function q = skin_shear_flow(L_span) % returns q (N/mm)
+% shear flow is purely from torque on the top and bottom skin
+    T = extract_force(L_span,'T');
+	c = extract_dimension(L_span, 'c');
+    b2 = extract_dimension(L_span, 'bh');
+    q = T/(2*b2*c*1000);  
 end
 
 function I = second_moment_area(c, te, hc) % c:(m),te(mm),hc(mm),I(m^4)

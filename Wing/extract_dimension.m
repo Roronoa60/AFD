@@ -2,15 +2,19 @@
 
 function dimension = extract_dimension(span_location, dimension_type)
     load('station.mat');
-    span_end = station.SpanMesh(end);
+    span_end = SpanMesh(end);
     
     if 0 < span_location <= span_end
-        span_index = find(station.SpanMesh == round(span_location,2));
+        span_index = find((span_location-0.005 < SpanMesh) & (SpanMesh < span_location+0.005));
         switch dimension_type
             case 'c'
-                dimension = station.Chord(span_index);
+                dimension = c(span_index);
             case 'bh'
-                dimension = station.bh(span_index);
+                dimension = b2(span_index);
+            case 'chord'
+                dimension = Chord_len(span_index);
+            case 'wing_span'
+                dimension = span_end;
             otherwise
                 error('wing box dimension not recognized');
         end

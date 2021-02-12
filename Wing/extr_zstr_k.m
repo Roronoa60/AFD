@@ -19,6 +19,19 @@ if t_rat<0.5 || t_rat>2
     disp('Value of ts/t is out of accurate range. Beware!')
 end 
 
+% Interpolation for if t_rat is not discrete number
+if (0.5 <= t_rat) & (t_rat <= 1)
+   t_rat = round(t_rat, 1);
+elseif t_rat <= 1.125
+    t_rat = 1;
+elseif t_rat <= 1.375
+    t_rat = 1.25;
+elseif t_rat <= 1.75
+    t_rat = 1.5;
+elseif t_rat <= 3
+    t_rat = 2;
+end
+
 if any(d_h_checker(:) == d_h)~=1
     error('d/h values other than 0.3, 0.4, 0.5 are not supported')
 end 
