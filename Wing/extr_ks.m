@@ -2,7 +2,7 @@
 %of flat plate under in-plane bending loads. Input is a/b as specified on
 %the Niu graph. Specify type 1,2,3,4 according to boundary conditions.
 
-function K=extr_kb(a,type)
+function K=extr_ks(a,type)
 
 load('ks_var.mat');
 
