@@ -187,9 +187,9 @@ title("wing box based on FS/RS")
 
 % wing box dimensions
 station.c=l*station.Chord_len';
-staion.b2=h*station.Chord_len';
+station.b2=h*station.Chord_len';
 
-
+station.T = T; % add T to station
 save('station.mat', '-struct', 'station');
 
 % Saving SF, BM and T to be used for calculations
