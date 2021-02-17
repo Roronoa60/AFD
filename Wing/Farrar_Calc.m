@@ -4,6 +4,6 @@ function F = Farrar_Calc(a, t_rat)
 
 load('FARRAR.mat')
 
-K=FIT(a,t_rat)
+F=FIT(a,t_rat);
 
 end 

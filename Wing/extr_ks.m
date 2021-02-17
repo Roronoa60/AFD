@@ -7,7 +7,7 @@ function K=extr_ks(a,type)
 load('ks_var.mat');
 
 if a>6 || a<1
-    disp('Value of a/b is out of accurate range. Beware!')
+    % disp('Value of a/b is out of accurate range. Beware!')
 end 
     
 switch type
