@@ -1,11 +1,20 @@
 % function to extract wing box dimensions at a given span location
 
-function dimension = extract_dimension(span_location, dimension_type)
-    load('station_ult.mat');
+function dimension = extract_dimension(span_location, dimension_type, VT_or_HT, loading_direction)
+    switch VT_or_HT
+        case 'VT'
+            load('station_Vtail.mat');
+        case 'HT'
+            switch loading_direction
+                case 'top'
+                    load('stationHTP.mat');
+                case 'bottom'
+                    load('stationHTP.mat');
+            end
+    end
     span_end = SpanMesh(end);
-    
     if 0 < span_location <= span_end
-        span_index = find((span_location-0.005 < SpanMesh) & (SpanMesh < span_location+0.005));
+        span_index = min(find((span_location-0.005 < SpanMesh) & (SpanMesh <= span_location+0.0051)));
         switch dimension_type
             case 'c'
                 dimension = c(span_index);

@@ -1,29 +1,24 @@
 % This function returns either the shear force (SF), bending moment (BM) or torque (T)  at a specified span
 
-function force = extract_force(span_location, force_type, loading_direction)
-    switch loading_direction
-        case 'top'
-            load('station_ult.mat');
-        case 'bottom'
-            load('station_negative');
+function force = extract_force(span_location, force_type, VT_or_HT, loading_direction)
+    switch VT_or_HT
+        case 'VT'
+            load('station_Vtail.mat');
+            
+        case 'HT'
+            switch loading_direction
+                case 'top'
+                    load('stationHTP.mat');
+                case 'bottom'
+                    load('stationHTP.mat');
+            end
     end
     
-    % load('force_distributions.mat');
     span_end = SpanMesh(end);
     
     if 0 < span_location <= span_end
         span_index = find((span_location-0.005 < SpanMesh) & (SpanMesh < span_location+0.005));
         if force_type == 'SF'
-            if loading_direction == 'top'
-                force_ult = SF_tot(span_index);
-                load('station_land.mat')
-                force_land = SF_tot(span_index);
-                if force_ult > force_land
-                    force = force_ult;
-                else
-                    force = force_land;
-                end
-            end
             force = SF_tot(span_index);
         elseif force_type == 'BM'
             force = BM_tot(span_index);

@@ -2,27 +2,16 @@
 
 clear
 clc
-E = 70;
 % 7743 kg is wing empty weight
 
-% [weights_array, best_geometry] = root_geometry_all(E);
+[weights_array, best_geometry] = main_optimisation(78);
 
-% TO TEST FINAL CHOSEN STRINGER GEOMETRY
 %{
-c = 3.802;
-g = struct('n', 34,  't', 6.1724, 'Rt', 0.5, 'Rdh', 0.4, 'Rb', 0.5, 'F', 0.8);
-g.b = c/(g.n+1); % b - stringer pitch (m)
-g.h = g.Rb*g.b; % h - stringer height (m)
-g.d = g.Rdh*g.h; % d - flange height (m)
-g.ts = g.Rt*g.t;
-g.As = (g.ts*g.h + 2*g.d*g.ts)*1000;
-%}
-
 load('varying_L_best_geometry.mat')
 bg = best_geometry;
-E = 70;
-[weights, best_n] = bottom_stringer_panel(E, bg, bg.L_distribution);
-
+E = 78;
+[weights, best_n] = bottom_stringer_panel(78, bg, bg.L_distribution);
+%}
 %{
 [L_distribution, Tr_distribution, t_distribution] = varying_L_solution(geometry, E);
 
@@ -56,6 +45,13 @@ legend('rib weight', 'stringer weight', 'total weight');
 xlabel('n')
 ylabel('weight')
 %}
+
+function [D_t_distribution, D_L_distribution] = D_section_optimisation(
+    % Assume semicircular D_section
+    for num_rib = 0:30
+        
+    end
+end
 
 function  [t,sigma] = simple_panel_buckling(M, c, bh, E)
     % M - Bending Moment at section (Nm)
@@ -201,7 +197,7 @@ function  [min_weight_geometry, max_F_geometry, weight_curve] = root_geometry(E)
     %}
 end
 
-function  [weights, best_geometry] = root_geometry_all(E) %(n, t2, ts, h, M, c, b2, E)
+function  [weights, best_geometry] = main_optimisation(E)
     % M - root bending moment (Nm)
     % c - root box width (m)
     % bh - root box height (m)
@@ -228,16 +224,16 @@ function  [weights, best_geometry] = root_geometry_all(E) %(n, t2, ts, h, M, c, 
     % Rdh = d/h = flange width/flange height
     % Rb = d*/b = h/b stringer height/stringer pitch  (d* as Gp 17 denote stringer height as d not h)
     
-    weights = []; % {'n', 't', 'Rt', 'Rdh', 'Rb', 'F', 'root weight', 'total weight'}
-    titles = {'n', 't', 'Rt', 'Rdh', 'Rb', 'F', 'L', 'root weight', 'total weight'};
+    weights = {}; % {'n', 't', 'Rt', 'Rdh', 'Rb', 'F', 'root weight', 'total weight'}
+    titles = {'n', 't', 'Rt', 'Rdh', 'Rb', 'F', 'L', 'root weight', 'total weight', 'As/bt', 't_dist', 'L_dist', 'Tr_dist', 'te'};
     
     best_geometry = struct('total_weight', 1000);
         
-    for n = 6:2:30
+    for n = 6:2:50
         n
         for Rt = [0.5,0.6,0.7,0.8,0.9,1,1.25,1.5,2]
             for Rdh = [0.3,0.4,0.5]
-                for Rb = [0.05, 0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
+                for Rb = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5]
                     
                     b = c/(n+1); % b - stringer pitch (m)
                     h = Rb*b; % h - stringer height (m)
@@ -252,6 +248,11 @@ function  [weights, best_geometry] = root_geometry_all(E) %(n, t2, ts, h, M, c, 
                             % Solve for skin thickness using combined loads inequality
                             t = solve_skin_thickness(geometry, c, E, 0.5, N, q, 'root');
                             ts = Rt*t;
+                            
+                            if ts < 1
+                                ts = 1;
+                                t = ts/Rt;
+                            end
 
                             % Calculate Weight Saving
                             As = As_bt * t * b * 1000;
@@ -263,10 +264,11 @@ function  [weights, best_geometry] = root_geometry_all(E) %(n, t2, ts, h, M, c, 
 
                             [L_distribution, Tr_distribution, t_distribution] = varying_L_solution(geometry, E);
                             [rib_weight, stringer_weight, total_weight, L] = wing_weight(geometry, L_distribution, Tr_distribution, t_distribution);
-                            weights(end + 1, :) = [n, t, Rt, Rdh, Rb, F, L, root_weight_save, total_weight*1000]; 
+                            weights(end + 1, :) = {n, t, Rt, Rdh, Rb, F, L, root_weight_save, total_weight*1000, As/(b*t*1000), t_distribution, L_distribution, Tr_distribution, te}; 
                             if total_weight*1000 < best_geometry.total_weight
                                 best_geometry = geometry;
                                 best_geometry.total_weight = total_weight*1000;
+                                best_geometry.As_bt = As/(b*t*1000);
                                 best_geometry.t_distribution = t_distribution;
                                 best_geometry.L_distribution = L_distribution;
                                 best_geometry.Tr_distribution = Tr_distribution;
@@ -328,10 +330,6 @@ function [weights, best_n] = bottom_stringer_panel(E, best_geometry, L_distribut
             best_n.t_distribution = t_array;
         end
     end
-end
-
-function weight = stringer_panel_weight(As, c, n, t)
-    weight = n*As + c*t;
 end
 
 function t = solve_skin_thickness(g, c, E, L, N, q, type, t_skin) % Use combined loading inequality of compressive and shear stress to solve for t % NOT TESTED 
@@ -471,18 +469,26 @@ function [rib_weight, stringer_weight, total_weight, L] = wing_weight(g, L_distr
     rib_weight = 0;
     stringer_weight = 0;
     total_weight = 0;
+    wing_span = extract_dimension(0, 'wing_span');
+    L_distribution(end + 1) = wing_span;
+    
     for i = 1:(size(L_distribution,2)-1)
         span_start = L_distribution(i);
         span_end = L_distribution(i+1);
         section_length = L_distribution(i+1)-L_distribution(i);
-        bh = extract_dimension(span_start, 'bh');
+        bh = extract_dimension(span_end, 'bh');
         c1 = extract_dimension(span_start, 'c');
         c2 = extract_dimension(span_end, 'c');
         
         te = t_distribution(i) + g.As/(1000*g.b);
         
-        stringer_section_weight = te/1000 *section_length*(c1+c2)/2; % Use trapezoid area for skin area
-        rib_section_weight = Tr_distribution(i)*c1*bh/1000;
+        stringer_section_weight = (te/1000 *section_length*(c1+c2)/2); 
+
+        if i == size(L_distribution,2)-1
+            rib_section_weight = 0;
+        else
+            rib_section_weight = Tr_distribution(i)*c2*bh/1000;
+        end
         stringer_weight = stringer_weight + stringer_section_weight;
         rib_weight = rib_weight + rib_section_weight;
         total_weight = total_weight + stringer_section_weight + rib_section_weight;      
