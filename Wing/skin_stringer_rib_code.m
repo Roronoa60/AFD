@@ -4,13 +4,17 @@ clear
 clc
 % 7743 kg is wing empty weight
 
-[weights_array, best_geometry] = main_optimisation(78);
-
+%[weights_array, best_geometry] = main_optimisation(78, 30);
+addpath('Stringer Panel Result Data')
+load('n30_best_geometry.mat')
+[weights, best_n] = bottom_stringer_panel(78, 30, best_geometry, best_geometry.L_distribution);
+best_geometry.bottom_t = best_n.t_distribution;
+best_geometry.bottom_weight = best_n.stringer_weight;
 %{
 load('varying_L_best_geometry.mat')
 bg = best_geometry;
 E = 78;
-[weights, best_n] = bottom_stringer_panel(78, bg, bg.L_distribution);
+
 %}
 %{
 [L_distribution, Tr_distribution, t_distribution] = varying_L_solution(geometry, E);
@@ -45,13 +49,6 @@ legend('rib weight', 'stringer weight', 'total weight');
 xlabel('n')
 ylabel('weight')
 %}
-
-function [D_t_distribution, D_L_distribution] = D_section_optimisation(
-    % Assume semicircular D_section
-    for num_rib = 0:30
-        
-    end
-end
 
 function  [t,sigma] = simple_panel_buckling(M, c, bh, E)
     % M - Bending Moment at section (Nm)
@@ -197,7 +194,7 @@ function  [min_weight_geometry, max_F_geometry, weight_curve] = root_geometry(E)
     %}
 end
 
-function  [weights, best_geometry] = main_optimisation(E)
+function  [weights, best_geometry] = main_optimisation(E , num_stringers)
     % M - root bending moment (Nm)
     % c - root box width (m)
     % bh - root box height (m)
@@ -229,7 +226,7 @@ function  [weights, best_geometry] = main_optimisation(E)
     
     best_geometry = struct('total_weight', 1000);
         
-    for n = 6:2:50
+    for n = num_stringers %30 %6:2:50
         n
         for Rt = [0.5,0.6,0.7,0.8,0.9,1,1.25,1.5,2]
             for Rdh = [0.3,0.4,0.5]
@@ -284,15 +281,14 @@ function  [weights, best_geometry] = main_optimisation(E)
     
 end
 
-function [weights, best_n] = bottom_stringer_panel(E, best_geometry, L_distribution)
+function [weights, best_n] = bottom_stringer_panel(E, num_stringers, best_geometry, L_distribution)
     bg = best_geometry;
     weights = [];
     best_n = struct('n', 0, 'stringer_weight', 10000); % dummy default
     
     c = extract_dimension(0, 'c');
-    for n = 16:2:40
+    for n = num_stringers %16:2:40
         n
-        
         c = extract_dimension(0, 'c');
         bg.b = c/(n+1);
         bh = extract_dimension(0, 'bh');

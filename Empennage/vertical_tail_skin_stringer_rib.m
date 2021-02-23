@@ -2,16 +2,18 @@ clear
 clc
 addpath('interpolation_functions')
 
-% [weights, best_geometry] = main_optimisation(78, 'VT')
+%multi_cell_shear_flow(0, 'VT');
 
-weights_array = D_section_optimisation(78, 265, 'HT', 'top');
+[weights, best_geometry] = main_optimisation(78, 'VT')
+
+weights_array = D_section_optimisation(78, 265, 'VT', 'top');
 
 function [weights_array] = D_section_optimisation(E, tau_tres, VT_or_HT, load_direction)
     % Assume semicircular D_section
-    wing_span = extract_dimension(0, 'wing_span', VT_or_HT, load_direction);
+    wing_span = extract_dimension(0, 'wing_span', VT_or_HT);
     weights_array = {};
     
-    for num_rib = 0:20
+    for num_rib = 11 % 0:20
         num_rib
         cell_span = wing_span/(num_rib + 1); % a
         t_dist = [];
@@ -20,10 +22,10 @@ function [weights_array] = D_section_optimisation(E, tau_tres, VT_or_HT, load_di
         for section = 0:(num_rib)
             span_location = section*cell_span;
             
-            LE_span = extract_dimension(span_location, 'chord', VT_or_HT, load_direction)*0.1; % 10% LE Assumption
+            LE_span = extract_dimension(span_location, 'chord', VT_or_HT)*0.1; % 10% LE Assumption
             R = LE_span*1; % D cell radius of curvature (guess)
             
-            bh = extract_dimension(span_location, 'bh', VT_or_HT, load_direction);
+            bh = extract_dimension(span_location, 'bh', VT_or_HT);
             
             t = 5; % D cell Initial Estimate thickness (mm)
             
@@ -38,7 +40,7 @@ function [weights_array] = D_section_optimisation(E, tau_tres, VT_or_HT, load_di
                 t = sqrt((tau_tres*10^6*b^2)/(Ks*E*10^9))*1000;
             end
             if t < 1
-                t = 1
+                t = 1;
             end
             t_dist(end+1) = t;
             rib_weight = (2/3)*bh*LE_span*1/1000; % 2/3 numerical estimate
@@ -49,13 +51,6 @@ function [weights_array] = D_section_optimisation(E, tau_tres, VT_or_HT, load_di
         weights_array(end + 1, :) = {num_rib, cell_span, total_weight, t_dist};
         
                 
-    end
-end
-
-function total_weight = D_section_weight(cell_span, curve_length, t_dist)
-    total_weight = 0;
-    for t = t_dist
-        total_weight = total_weight + cell_span*curve_length*t/1000;
     end
 end
 
@@ -77,7 +72,7 @@ function [weights, best_geometry] = main_optimisation(E, VT_or_HT)
     q = skin_shear_flow(0, VT_or_HT);
     bh = extract_dimension(0, 'bh', VT_or_HT);
     c = extract_dimension(0, 'c', VT_or_HT);
-    M = extract_force(0, 'BM', 'top', VT_or_HT);
+    M = extract_force(0, 'BM', VT_or_HT, 'top');
     N = M/(c*bh); % N - Compressive Load of unit length (N/m)
     
     % Simple Panel Weight
@@ -89,7 +84,7 @@ function [weights, best_geometry] = main_optimisation(E, VT_or_HT)
     
     best_geometry = struct('total_weight', 1000);
         
-    for n = 2:2:40
+    for n = 20
         n
         for Rt = [0.5,0.6,0.7,0.8,0.9,1,1.25,1.5,2]
             for Rdh = [0.3,0.4,0.5]
@@ -178,7 +173,7 @@ function [L_distribution, Tr_distribution, t_distribution] = skin_rib_distributi
     
     bh = extract_dimension(0, 'bh', VT_or_HT);
     c = extract_dimension(0, 'c', VT_or_HT);
-    M = extract_force(0, 'BM', 'top', VT_or_HT);
+    M = extract_force(0, 'BM', VT_or_HT, 'top');
     N = M/(c*bh);
     while 1 % iterate through each section in wing and assign rib spacing, rib thickness and skin thickness
         Kc = extr_zstr_k(g.h/g.b, g.ts/t_array(end), g.d/g.h);
@@ -189,7 +184,7 @@ function [L_distribution, Tr_distribution, t_distribution] = skin_rib_distributi
         else
             span_location = L_distribution(end) + L;
             q = skin_shear_flow(span_location, VT_or_HT);
-            M = extract_force(span_location, 'BM','top', VT_or_HT);
+            M = extract_force(span_location, 'BM', VT_or_HT, 'top');
             c = extract_dimension(span_location, 'c', VT_or_HT);
             bh = extract_dimension(span_location, 'bh', VT_or_HT);
             N = M/(c*bh); % compressive Load at section*L
@@ -246,11 +241,47 @@ end
 
 function q = skin_shear_flow(L_span, VT_or_HT) % returns q (N/mm)
 % shear flow is purely from torque on the top and bottom skin
-    T = extract_force(L_span, 'T', 'top', VT_or_HT);
+    T = extract_force(L_span, 'T', VT_or_HT, 'top');
 	c = extract_dimension(L_span, 'c', VT_or_HT);
     b2 = extract_dimension(L_span, 'bh', VT_or_HT);
     q = T/(2*b2*c*1000);  
 end
+
+%{
+function q = multi_cell_shear_flow(L_span, VT_or_HT)
+    syms t real
+    
+    T = extract_force(L_span, 'T', VT_or_HT, 'top')*10^-3;
+    SF = extract_force(L_span, 'SF', VT_or_HT, 'top');
+    c = extract_dimension(L_span, 'c', VT_or_HT);
+    
+    hw = extract_dimension(L_span, 'bh', VT_or_HT);
+    LE_span = extract_dimension(L_span, 'chord', VT_or_HT)*0.1; % 10% LE Assumption
+    
+    Sn = 1.1*sqrt((hw/2)^2 + LE_span^2)*2*10^3;
+    Sr = 2*c*10^3; % top and bottom lengths combined
+    
+    An = (2/3)*hw*LE_span*10^6;
+    Ar = hw*c*10^6;
+    
+    qw_front = 80; % Place holder
+    qw_rear = 40; %Place holder
+    tw_front = 3; %Place holder
+    tw_rear = 3; %Place holder
+    
+    tn = 3; %Place holder
+    
+    matrix = [2*An      , Ar     ;
+              Sn/(An*tn), -Sr/(Ar*t) ];
+    RHS = [T-Ar*qw_rear ;
+           -(1/Ar)*(hw*qw_rear/tw_rear)-(1/Ar + 1/An)*(hw*qw_front/tw_front)]
+    solution = matrix'*RHS
+    qn = eval(solution(1))
+    qr(t) = eval(solution(2));
+    eval(qr(3))
+    
+end
+%}
 
 function I = second_moment_area(c, te, hc) % c:(m),te(mm),hc(mm),I(m^4)
     % hc = beam depth between panels = box height
