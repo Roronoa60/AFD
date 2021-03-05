@@ -1,3 +1,4 @@
+
 clear 
 clc
 close all
@@ -95,7 +96,7 @@ while aero_LiftError > 0.1
 end
 
 %% inertialF Loads
-[station.SF_inertial,station.BM_inertial]=getSFnBM(-station.TotalMass.*9.81 ,station.SpanMesh,var.FAAngle);
+[station.SF_inertial,station.BM_inertial]=getSFnBM(-station.TotalMass.*9.81.*2.5 ,station.SpanMesh,var.FAAngle);
 
 [station.SF_aero,station.BM_aero]=getSFnBM(dL ,station.SpanMesh,var.FAAngle);
 

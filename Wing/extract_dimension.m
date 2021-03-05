@@ -1,7 +1,7 @@
 % function to extract wing box dimensions at a given span location
 
 function dimension = extract_dimension(span_location, dimension_type)
-    load('station.mat');
+    load('station_ult.mat');
     span_end = SpanMesh(end);
     
     if 0 < span_location <= span_end
