@@ -1,7 +1,9 @@
 close all
+clear
+clc
 
 t_blue = [0.3 0.6 1];
-red = [1 0.1 0.1];
+red = [0.9 0.1 0.2];
 green = [0.3 0.7 0.2];
 
 addpath('Results Data')
@@ -95,40 +97,47 @@ sorted_weights = sortrows(T, 'total_weight', 'ascend');
 %}
 %subplot(2, 2, 4)
 figure
+set(gca,'FontSize',12)
+line([20 20, 0],[0 185.6, 185.6], 'LineStyle','--', 'Color', 'black', 'LineWidth',1.5)
 hold on
+scatter(n, total_weight,'x', 'MarkerEdgeColor', red, 'LineWidth',0.2)
+
 for i=4:2:40
     current_n = T(T.n==i, :);
     max_n = T(T.total_weight == min(current_n.total_weight), :);
 
     weight_ratio = max_n.As_bt;
     
-    scatter(max_n.n, max_n.total_weight,'x', 'MarkerEdgeColor', t_blue);
-    scatter(max_n.n, max_n.total_weight*weight_ratio,'x', 'MarkerEdgeColor', red);
-    scatter(max_n.n, max_n.total_weight*(1-weight_ratio),'x', 'MarkerEdgeColor', green);
+    scatter(max_n.n, max_n.total_weight, 80,'x', 'MarkerEdgeColor', green, 'LineWidth',2);
+    %scatter(max_n.n, max_n.total_weight*weight_ratio,'x', 'MarkerEdgeColor', red, 'LineWidth',1.5);
+    %scatter(max_n.n, max_n.total_weight*(1-weight_ratio),'x', 'MarkerEdgeColor', green, 'LineWidth',1.5);
     
 end
-legend('Combined Weight', 'Stringer Weight', 'Skin Weight')
-line([20 20, 0],[0 185.6, 185.6],'Color', 'black')
-xlabel('Number of stringers - n');
+legend('Selected Value', 'Suboptimal Configuration', 'Best Weight Configuration') %, 'Combined Weight', 'Stringer Weight Component', 'Skin Weight Component')
+
+xlabel('Number of Stringers - n');
 ylim([0 450])
 ylabel('Weight (kg)');
 
 
+
+
 load('VT_n20_best_geometry')
-load('D_section')
+load('VT_D_section')
 D_t_distribution = cell2mat(D_section(4));
 
 bg = best_geometry;
 figure
-scatter(bg.L_distribution(2:end-1), bg.Tr_distribution(1:end-1));
+scatter(bg.L_distribution(2:end), bg.Tr_distribution(1:end), 'LineWidth',1.5, 'MarkerEdgeColor', red);
+set(gca,'FontSize',12)
 hold on
-stairs(bg.L_distribution, bg.t_distribution);
-stairs(bg.L_distribution, [D_t_distribution, D_t_distribution(end)]);
+stairs([bg.L_distribution, extract_dimension(0, 'wing_span', 'VT')], [bg.t_distribution, bg.t_distribution(end)], 'LineWidth',1.5, 'Color', green);
+stairs([bg.L_distribution, extract_dimension(0, 'wing_span', 'VT')], [D_t_distribution, D_t_distribution(end)], 'LineWidth',1.5, 'Color', t_blue);
 xlabel('Wing Span (m)')
 ylabel('Thickness (mm)')
 ylim([0 10]);
 
-legend('Rib and Pseudo Thickness', 'Skin Thickness', 'D section thickness')
+legend('Rib and Pseudo Rib Thickness', 'Skin Thickness', 'D Section Thickness')
 
 %scatter(bg.L_distribution(1:end), best_n.t_distribution, 'x');
 %legend('Rib Thickness', 'Top Skin Thickness', 'Bottom Skin Thickness')
@@ -139,3 +148,7 @@ chosen = T(T.total_weight == min(current_n.total_weight), :)
 scatter(chosen.L_distribution(2:end), bg.Tr_distribution)
 %}
 total_weight = 2700*(bg.total_weight/1000 + cell2mat(D_section(3)))
+D_section_weight = cell2mat(D_section(3))*2700
+rib_weight = 0.138*(total_weight-D_section_weight)
+stringer_weight = (bg.As_bt*20/21)*(total_weight-D_section_weight-rib_weight)
+skin_weight = total_weight-D_section_weight-rib_weight-stringer_weight

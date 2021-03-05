@@ -4,16 +4,16 @@ addpath('interpolation_functions')
 
 %multi_cell_shear_flow(0, 'VT');
 
-[weights, best_geometry] = main_optimisation(78, 'VT')
+%[weights, best_geometry] = main_optimisation(78, 'HT')
 
-weights_array = D_section_optimisation(78, 265, 'VT', 'top');
+weights_array = D_section_optimisation(78, 265, 'HT', 'top');
 
 function [weights_array] = D_section_optimisation(E, tau_tres, VT_or_HT, load_direction)
     % Assume semicircular D_section
     wing_span = extract_dimension(0, 'wing_span', VT_or_HT);
     weights_array = {};
     
-    for num_rib = 11 % 0:20
+    for num_rib = 7 % 0:20
         num_rib
         cell_span = wing_span/(num_rib + 1); % a
         t_dist = [];
@@ -98,7 +98,7 @@ function [weights, best_geometry] = main_optimisation(E, VT_or_HT)
                         % Get Optimum FARRAR
                         As_bt = Rt*(h+2*d)/b; % As/(b*t) = ((h + 2*d)*ts)/(b*t) = Rt*(h+2*d)/b
                         F = Farrar_Calc(As_bt, Rt);
-                        if F > 0.35
+                        if F > 0.6
                             geometry = struct('n', n, 'b', b, 'Rt', Rt, 'h', h, 'd', d);
                             % Solve for skin thickness using combined loads inequality
                             t = solve_skin_thickness(geometry, c, E, 0.5, N, q, 'root');
@@ -179,7 +179,7 @@ function [L_distribution, Tr_distribution, t_distribution] = skin_rib_distributi
         Kc = extr_zstr_k(g.h/g.b, g.ts/t_array(end), g.d/g.h);
         te = t_array(end) + g.As/(1000*g.b);
         L = 10^3*(3.62/Kc)^2*F^2*te^2*E/N; % Solution to Farrar Equation
-        if L_distribution(end) + L > wing_span % check if section beyond wing_span
+        if abs(L_distribution(end) + L) >= wing_span % check if section beyond wing_span
             break
         else
             span_location = L_distribution(end) + L;

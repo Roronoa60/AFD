@@ -3,13 +3,36 @@ clear
 clc
 
 t_blue = [0.3 0.6 1];
-red = [1 0.1 0.1];
+orange = [1, 0.6, 0];
 green = [0.3 0.7 0.2];
+red = [0.9 0.1 0.2];
+select_color = [0 0 0];
+select_size = 60;
+select_thickness = 2.2;
+
+load('bottom_weights')
+bottom_n = cell2mat(bottom_weights(:, 1));
+bottom_weight = cell2mat(bottom_weights(:, 4));
+
+line([30 30, 0],[0 2.7*bottom_weight(13), 2.7*bottom_weight(13)], 'LineStyle','--', 'Color', 'black', 'LineWidth',1.5)
+hold on
+%scatter(bg.n, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',1.8)
+%scatter(bottom_n, 2.7*bottom_weight(13),'x', 'MarkerEdgeColor', red, 'LineWidth',0.2)
+%scatter(30, 2.7*bottom_weight(13), select_size, 'MarkerEdgeColor', select_color, 'LineWidth',1.8)
+scatter(bottom_n, 2.7*bottom_weight, 80,'x', 'MarkerEdgeColor', green, 'LineWidth',2)
+line([30 30, 0],[0 2.7*bottom_weight(13), 2.7*bottom_weight(13)], 'LineStyle','--', 'Color', 'black', 'LineWidth',1.5)
+xlabel('Number of Stringers - n');
+ylabel('Weight (kg)');
+legend('Selected Value', 'Best Weight Configuration')
+ylim([0 1600])
+
+figure
 
 addpath('Stringer Panel Result Data')
 load('weights_n50.mat')
-load('weights_n50_best_geometry.mat')
-% load('bottom_stringer_for_n40')
+%load('weights_n50_best_geometry.mat')
+load('n30_best_geometry')
+bg = best_geometry;
 titles = {'n', 't', 'Rt', 'Rdh', 'Rb', 'F', 'L', 'root weight', 'total weight', 'As_bt', 'te'};
 
 weights = weights_array;
@@ -28,129 +51,101 @@ T = table(n, t, Rt, Rdh, Rb, F, L, root_weight, total_weight, As_bt, te);
 
 
 subplot(2, 2, 1)
+scatter(bg.F, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',select_thickness)
+hold on
+
 for i=8:2:50
     current_n = T(T.n==i, :);
     scatter(current_n.F, current_n.total_weight,'.', 'MarkerEdgeColor', t_blue);
-    hold on
+    set(gca,'FontSize',12)
 end
-%legend(string(4:2:40));
-hold on
+scatter(bg.F, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',select_thickness)
+legend('Selected Value')
 xlabel('FARRAR Efficiency Factor');
 ylabel('Weight (kg)');
 ylim([0 2500])
 
-%{
-figure
-for i=4:2:40
-    current_n = T(T.n==i, :);
-    scatter(current_n.root_weight, current_n.total_weight);
-    hold on
-end
-legend(string(4:2:40));
-xlabel('root weight');
-ylabel('total weight');
-%}
-%scatter(root_weight, total_weight);
-hold on
 subplot(2, 2, 2)
+scatter(bg.L_distribution(2), bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',select_thickness)
+hold on
 for i=8:2:50
     current_n = T(T.n==i, :);
     scatter(current_n.L, current_n.total_weight, '.', 'MarkerEdgeColor', t_blue');
-    hold on
+    
+    set(gca,'FontSize',12)
 end
-%legend(string(4:2:40));
+scatter(bg.L_distribution(2), bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',select_thickness)
+legend('Selected Value')
 xlabel('Average Rib Spacing (m)');
 ylabel('Weight (kg)');
 ylim([0 2500])
 xlim([0 1])
 
-%{
-figure
-for i=4:2:40
-    current_n = T(T.n==i, :);
-    scatter(current_n.te, current_n.total_weight);
-    hold on
-end
-
-legend(string(4:2:40));
-xlabel('te');
-ylabel('total weight');
-%}
-
 subplot(2, 2, 3)
+scatter(bg.As_bt, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',2)
+hold on
 for i=8:2:50
     current_n = T(T.n==i, :);
     scatter(current_n.As_bt, current_n.total_weight,'.', 'MarkerEdgeColor', t_blue);
-    hold on
+    set(gca,'FontSize',12)
 end
-
-%legend(string([4, 6, 10, 16, 24, 32, 40]));
+scatter(bg.As_bt, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',select_thickness)
+legend('Selected Value')
 xlabel('As/bt');
 ylabel('Weight (kg)');
 ylim([0 2500])
 
 sorted_weights = sortrows(T, 'total_weight', 'ascend');
 
+
+
+Ribs_weight = 279.72;
 subplot(2, 2, 4)
 hold on
+line([30 30, 0],[0 bg.total_weight*2.7, bg.total_weight*2.7], 'LineStyle','--', 'Color', 'black', 'LineWidth',1.5)
+%scatter(bg.n, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',1.8)
+scatter(n, total_weight,'x', 'MarkerEdgeColor', red, 'LineWidth',0.2)
 for i=8:2:50
     current_n = T(T.n==i, :);
     max_n = T(T.total_weight == min(current_n.total_weight), :);
 
     weight_ratio = max_n.As_bt;
     
-    scatter(max_n.n, max_n.total_weight,'x', 'MarkerEdgeColor', t_blue);
-    scatter(max_n.n, max_n.total_weight*weight_ratio*(1+0.005*i),'x', 'MarkerEdgeColor', red);
-    scatter(max_n.n, max_n.total_weight*(1-weight_ratio),'x', 'MarkerEdgeColor', green);
-    
+    scatter(max_n.n, max_n.total_weight, 80,'x', 'MarkerEdgeColor', green, 'LineWidth',2);
+    %scatter(max_n.n, (max_n.total_weight-Ribs_weight)*weight_ratio*(1+0.002*i),'x', 'MarkerEdgeColor', orange, 'LineWidth',1.5);
+    %scatter(max_n.n, (max_n.total_weight-Ribs_weight)*(1-weight_ratio*(1+0.002*i)),'x', 'MarkerEdgeColor', green, 'LineWidth',1.5);
+    set(gca,'FontSize',12)
 end
-legend('Combined Weight', 'Stringer Weight', 'Skin Weight')
-line([30 30, 0],[0 1248.82, 1248.82],'Color', 'black')
+line([30 30, 0],[0 bg.total_weight*2.7, bg.total_weight*2.7], 'LineStyle','--', 'Color', 'black', 'LineWidth',1.5)
+%scatter(bg.n, bg.total_weight*2.7, select_size, 'MarkerEdgeColor', select_color, 'LineWidth',1.8)
+legend('Selected Value', 'Suboptimal Configuration', 'Best Weight Configuration')
+%line([30 30, 0],[0 1248.82, 1248.82], 'LineStyle','--', 'Color', 'black', 'LineWidth',1.5)
+
 ylim([0 2500])
 xlim([0 50])
 
 ylabel('Weight (kg)');
 xlabel('Number of Stringers - n');
-%{
-N = 30
-current_n = T(T.n==N, :);
-best_geometry = weights_array(T.total_weight == min(current_n.total_weight),:);
 
-t_distribution = cell2mat(best_geometry(11));
-L_distribution = cell2mat(best_geometry(12));
-Tr_distribution = cell2mat(best_geometry(13));
-
-best_geometry = table2struct(T(T.total_weight == min(current_n.total_weight),:));
-best_geometry.t_distribution = t_distribution;
-best_geometry.L_distribution = L_distribution;
-best_geometry.Tr_distribution = Tr_distribution;
-best_geometry.ts = best_geometry.Rt*best_geometry.t;
-
-best_geometry.b = extract_dimension(0, 'c')/(N+1);
-best_geometry.h = best_geometry.b*best_geometry.Rb;
-best_geometry.d = best_geometry.Rdh*best_geometry.h;
-%}
-
-load('n30_best_geometry')
-bg = best_geometry;
 figure
-scatter(bg.L_distribution(2:end-1), bg.Tr_distribution(1:end-1));
+scatter(bg.L_distribution(2:end-1), bg.Tr_distribution(1:end-1), 'LineWidth',1.5, 'MarkerEdgeColor', t_blue);
 hold on
-stairs(bg.L_distribution, [bg.t_distribution(1:end-1), bg.t_distribution(end-1)]);
-stairs(bg.L_distribution(1:end), bg.bottom_t);
+stairs(bg.L_distribution, [bg.t_distribution(1:end-1), bg.t_distribution(end-1)], 'LineWidth',1.5, 'Color', red);
+stairs(bg.L_distribution(1:end), bg.bottom_t, 'LineWidth',1.5, 'Color', green);
 
 xlabel('Wing Span (m)')
 ylabel('Thickness (mm)')
 ylim([0 10]);
-
+xlim([0 18]);
+set(gca,'FontSize',12)
 legend('Rib Thickness', 'Top Skin Thickness', 'Bottom Skin Thickness')
 
-%scatter(bg.L_distribution(1:end), best_n.t_distribution, 'x');
-%legend('Rib Thickness', 'Top Skin Thickness', 'Bottom Skin Thickness')
-%}
-%{
-current_n = T(T.20==i, :);
-chosen = T(T.total_weight == min(current_n.total_weight), :)
-scatter(chosen.L_distribution(2:end), bg.Tr_distribution)
-%}
 total_weight = 2700*(bg.total_weight + bg.bottom_weight)/1000
+
+stringer_weight_ratio = max_n.As_bt * 30/(30+1);
+
+top_stringer_weight = stringer_weight_ratio*969.03
+bottom_stringer_weight = bg.bottom_weight*2.7*stringer_weight_ratio
+top_skin_weight = (1-stringer_weight_ratio)*969.03
+
+bottom_skin = bg.bottom_weight*2.7 - top_stringer_weight

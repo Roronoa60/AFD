@@ -6,12 +6,7 @@ function force = extract_force(span_location, force_type, VT_or_HT, loading_dire
             load('station_Vtail.mat');
             
         case 'HT'
-            switch loading_direction
-                case 'top'
-                    load('stationHTP.mat');
-                case 'bottom'
-                    load('stationHTP.mat');
-            end
+            load('station_htp.mat');
     end
     
     span_end = SpanMesh(end);

@@ -4,12 +4,15 @@ clear
 clc
 % 7743 kg is wing empty weight
 
-%[weights_array, best_geometry] = main_optimisation(78, 30);
+[weights_array, best_geometry] = main_optimisation(78, 30);
 addpath('Stringer Panel Result Data')
 load('n30_best_geometry.mat')
 [weights, best_n] = bottom_stringer_panel(78, 30, best_geometry, best_geometry.L_distribution);
-best_geometry.bottom_t = best_n.t_distribution;
-best_geometry.bottom_weight = best_n.stringer_weight;
+
+
+%best_geometry.bottom_t = best_n.t_distribution;
+%best_geometry.bottom_weight = best_n.stringer_weight;
+
 %{
 load('varying_L_best_geometry.mat')
 bg = best_geometry;
@@ -230,7 +233,7 @@ function  [weights, best_geometry] = main_optimisation(E , num_stringers)
         n
         for Rt = [0.5,0.6,0.7,0.8,0.9,1,1.25,1.5,2]
             for Rdh = [0.3,0.4,0.5]
-                for Rb = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5]
+                for Rb = 0.5 % [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5]
                     
                     b = c/(n+1); % b - stringer pitch (m)
                     h = Rb*b; % h - stringer height (m)
@@ -283,11 +286,11 @@ end
 
 function [weights, best_n] = bottom_stringer_panel(E, num_stringers, best_geometry, L_distribution)
     bg = best_geometry;
-    weights = [];
+    weights = {};
     best_n = struct('n', 0, 'stringer_weight', 10000); % dummy default
     
     c = extract_dimension(0, 'c');
-    for n = num_stringers %16:2:40
+    for n = 6:2:40
         n
         c = extract_dimension(0, 'c');
         bg.b = c/(n+1);
@@ -300,8 +303,7 @@ function [weights, best_n] = bottom_stringer_panel(E, num_stringers, best_geomet
         for i = 1:8
             tn = solve_skin_thickness(bg, c, E, L_distribution(2), abs(N), q, 'span', tn);
         end
-        if tn < 1
-            tn = 1;
+        if tn < 1            tn = 1;
         end
         t_array = [tn];
 
@@ -319,7 +321,7 @@ function [weights, best_n] = bottom_stringer_panel(E, num_stringers, best_geomet
             end
         end
         [rib_weight, stringer_weight, total_weight, L] = wing_weight(bg, L_distribution, t_array, t_array);
-        weights(end + 1, :) = [n, t_array(1), bg.F, stringer_weight*1000];
+        weights(end + 1, :) = {n, t_array(1), bg.F, stringer_weight*1000, t_array};
         if stringer_weight*1000 < best_n.stringer_weight
             best_n.n = n;
             best_n.stringer_weight = stringer_weight*1000;

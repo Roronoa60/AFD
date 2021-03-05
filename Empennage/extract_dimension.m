@@ -5,7 +5,7 @@ function dimension = extract_dimension(span_location, dimension_type, VT_or_HT)
         case 'VT'
             load('station_Vtail.mat');
         case 'HT'
-            load('stationHTP.mat');
+            load('station_htp.mat');
     end
     span_end = SpanMesh(end);
     if 0 < span_location <= span_end
