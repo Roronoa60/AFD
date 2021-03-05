@@ -1,6 +1,7 @@
 close all
 clear
 clc
+addpath('Stringer Panel Result Data')
 
 t_blue = [0.3 0.6 1];
 orange = [1, 0.6, 0];
